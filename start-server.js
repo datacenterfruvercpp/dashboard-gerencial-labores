@@ -1,93 +1,110 @@
-// start-server.js - Entry point for LiteSpeed/cPanel Node.js Selector
-// Polyfills Web API globals (Request, Response, Headers) if the system
-// Node.js build doesn't expose them, then starts the Next.js standalone server.
+// start-server.js – Ultra-lightweight file server for cPanel shared hosting
+// Serves the Next.js pre-rendered static build without worker threads.
+// Designed for environments with strict pthread limits (CloudLinux/cPanel).
 
-if (typeof globalThis.Request === 'undefined') {
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const url = require('url');
+
+const PORT = parseInt(process.env.PORT, 10) || 3001;
+const BASE = __dirname;
+
+// Pre-rendered HTML from Next.js build
+const INDEX_HTML = path.join(BASE, '.next', 'standalone', '.next', 'server', 'app', 'index.html');
+const NOT_FOUND_HTML = path.join(BASE, '.next', 'standalone', '.next', 'server', 'app', '_not-found.html');
+
+// Static asset directories
+const STATIC_DIR = path.join(BASE, '.next', 'standalone', '.next', 'static');
+const PUBLIC_DIR = path.join(BASE, 'public');
+
+// MIME types
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.js':   'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif':  'image/gif',
+  '.svg':  'image/svg+xml',
+  '.ico':  'image/x-icon',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2':'font/woff2',
+  '.ttf':  'font/ttf',
+  '.map':  'application/json',
+};
+
+function getMime(filePath) {
+  return MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+}
+
+function serveFile(res, filePath, cacheControl) {
   try {
-    // Node.js 18+ exposes undici via 'node:undici'
-    const u = require('node:undici');
-    ['Request', 'Response', 'Headers', 'fetch', 'FormData'].forEach(function(k) {
-      if (u[k]) globalThis[k] = u[k];
+    if (!fs.existsSync(filePath)) return false;
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return false;
+    res.writeHead(200, {
+      'Content-Type': getMime(filePath),
+      'Content-Length': stat.size,
+      'Cache-Control': cacheControl || 'public, max-age=3600',
     });
+    fs.createReadStream(filePath).pipe(res);
+    return true;
   } catch (e) {
-    // Minimal ES6 class polyfill for environments without Web API globals
-    class _Headers {
-      constructor(init) {
-        this._m = {};
-        if (init) {
-          const src = init instanceof _Headers ? init._m : init;
-          Object.entries(src).forEach(([k, v]) => { this._m[k.toLowerCase()] = String(v); });
-        }
-      }
-      get(k) { return Object.prototype.hasOwnProperty.call(this._m, k.toLowerCase()) ? this._m[k.toLowerCase()] : null; }
-      set(k, v) { this._m[k.toLowerCase()] = String(v); }
-      has(k) { return Object.prototype.hasOwnProperty.call(this._m, k.toLowerCase()); }
-      append(k, v) { const lk = k.toLowerCase(); this._m[lk] = this._m[lk] ? this._m[lk] + ',' + v : String(v); }
-      delete(k) { delete this._m[k.toLowerCase()]; }
-      forEach(fn) { Object.entries(this._m).forEach(([k, v]) => fn(v, k, this)); }
-      entries() { return Object.entries(this._m)[Symbol.iterator](); }
-      keys() { return Object.keys(this._m)[Symbol.iterator](); }
-      values() { return Object.values(this._m)[Symbol.iterator](); }
-    }
-
-    class _Request {
-      constructor(input, init) {
-        this.url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-        init = init || {};
-        this.method = init.method || 'GET';
-        this.headers = new _Headers(init.headers || {});
-        this.body = init.body || null;
-        this.mode = init.mode || 'cors';
-        this.credentials = init.credentials || 'same-origin';
-        this.cache = init.cache || 'default';
-        this.redirect = init.redirect || 'follow';
-        this.signal = init.signal || null;
-        this.referrer = init.referrer || '';
-        this.referrerPolicy = init.referrerPolicy || '';
-        this.integrity = init.integrity || '';
-        this.keepalive = init.keepalive || false;
-      }
-      clone() { return Object.assign(Object.create(Object.getPrototypeOf(this)), this); }
-      text() { return Promise.resolve(this.body ? String(this.body) : ''); }
-      json() { return this.text().then(JSON.parse); }
-      arrayBuffer() { return Promise.resolve(new ArrayBuffer(0)); }
-      formData() { return Promise.resolve(new FormData()); }
-    }
-
-    class _Response {
-      constructor(body, init) {
-        init = init || {};
-        this.body = body;
-        this.status = init.status !== undefined ? init.status : 200;
-        this.statusText = init.statusText || '';
-        this.headers = new _Headers(init.headers || {});
-        this.ok = this.status >= 200 && this.status < 300;
-        this.type = 'default';
-        this.url = '';
-        this.redirected = false;
-      }
-      static json(data, init) {
-        const headers = Object.assign({ 'content-type': 'application/json' }, (init && init.headers) || {});
-        return new _Response(JSON.stringify(data), Object.assign({}, init, { headers }));
-      }
-      clone() { return Object.assign(Object.create(Object.getPrototypeOf(this)), this); }
-      text() { return Promise.resolve(this.body ? String(this.body) : ''); }
-      json() { return this.text().then(JSON.parse); }
-      arrayBuffer() { return Promise.resolve(new ArrayBuffer(0)); }
-    }
-
-    globalThis.Headers = _Headers;
-    globalThis.Request = _Request;
-    globalThis.Response = _Response;
-    globalThis.fetch = function() { return Promise.reject(new TypeError('fetch() not available in this environment')); };
-    if (typeof globalThis.FormData === 'undefined') {
-      globalThis.FormData = class FormData {
-        constructor() { this._d = []; }
-        append(k, v) { this._d.push([k, v]); }
-        get(k) { const e = this._d.find(([n]) => n === k); return e ? e[1] : null; }
-      };
-    }
+    return false;
   }
 }
 
-require('./.next/standalone/server.js');
+const server = http.createServer(function(req, res) {
+  const parsed = url.parse(req.url, true);
+  let pathname = decodeURIComponent(parsed.pathname);
+
+  // Security: prevent directory traversal
+  if (pathname.indexOf('..') !== -1) {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
+
+  // /_next/static/* → serve from .next/standalone/.next/static/
+  if (pathname.startsWith('/_next/static/')) {
+    const rel = pathname.replace('/_next/static/', '');
+    const filePath = path.join(STATIC_DIR, rel);
+    if (serveFile(res, filePath, 'public, max-age=31536000, immutable')) return;
+    res.writeHead(404);
+    res.end('Not found');
+    return;
+  }
+
+  // /api/* → return JSON (minimal stub – real API can be added later)
+  if (pathname.startsWith('/api/')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, message: 'API endpoint available' }));
+    return;
+  }
+
+  // Public files (favicon.ico, images, etc.)
+  if (pathname !== '/' && pathname !== '') {
+    // Try public dir first
+    const pubFile = path.join(PUBLIC_DIR, pathname);
+    if (serveFile(res, pubFile, 'public, max-age=86400')) return;
+    // Try standalone public
+    const standalonePub = path.join(BASE, '.next', 'standalone', 'public', pathname);
+    if (serveFile(res, standalonePub, 'public, max-age=86400')) return;
+  }
+
+  // Default: serve index.html
+  if (fs.existsSync(INDEX_HTML)) {
+    serveFile(res, INDEX_HTML, 'public, max-age=0, must-revalidate');
+  } else {
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('index.html not found at: ' + INDEX_HTML);
+  }
+});
+
+server.listen(PORT, '0.0.0.0', function() {
+  console.log('Dashboard server listening on port ' + PORT);
+});
