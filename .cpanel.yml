@@ -4,8 +4,10 @@ deployment:
     - export DEPLOYPATH=/home/datacent/respaldoreportedelabores.datacenterpc.com
     - /bin/cp -rf src $DEPLOYPATH/src
     - /bin/cp -rf public $DEPLOYPATH/public
+    - /bin/cp -rf .next $DEPLOYPATH/.next
     - /bin/cp -f package.json $DEPLOYPATH/package.json
     - /bin/cp -f next.config.ts $DEPLOYPATH/next.config.ts
     - /bin/cp -f tsconfig.json $DEPLOYPATH/tsconfig.json
     - /bin/cp -f sync-receiver.js $DEPLOYPATH/sync-receiver.js
+    - /bin/cp -f start-server.js $DEPLOYPATH/start-server.js
     - /bin/cp -f .env $DEPLOYPATH/.env
