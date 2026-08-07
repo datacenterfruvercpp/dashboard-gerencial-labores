@@ -1,22 +1,24 @@
 // start-server.js - Entry point for cPanel Node.js Selector
-// Starts Next.js in production mode
-const { spawn } = require('child_process');
-const path = require('path');
+// Uses Next.js as a module (compatible with cPanel virtual environment)
+const { createServer } = require('http');
+const { parse } = require('url');
+const next = require('next');
 
-const nextBin = path.join(__dirname, 'node_modules', '.bin', 'next');
-const port = process.env.PORT || 3001;
+const port = parseInt(process.env.PORT, 10) || 3001;
+const dev = process.env.NODE_ENV !== 'production';
 
-const child = spawn(process.execPath, [nextBin, 'start', '-p', port], {
-  stdio: 'inherit',
-  cwd: __dirname,
-  env: { ...process.env, NODE_ENV: 'production' }
-});
+const app = next({ dev, dir: __dirname });
+const handle = app.getRequestHandler();
 
-child.on('error', (err) => {
-  console.error('Failed to start Next.js:', err);
+app.prepare().then(() => {
+  createServer((req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
+  }).listen(port, (err) => {
+    if (err) throw err;
+    console.log(`> Ready on port ${port} [${dev ? 'development' : 'production'}]`);
+  });
+}).catch((err) => {
+  console.error('Error starting Next.js:', err);
   process.exit(1);
-});
-
-child.on('exit', (code) => {
-  process.exit(code || 0);
 });
