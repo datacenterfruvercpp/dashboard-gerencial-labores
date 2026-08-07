@@ -150,13 +150,13 @@ export function LaborPieChart({ detalle }: { detalle: DetalleLaboral[] }) {
     <ResponsiveContainer width="100%" height={350}>
       <PieChart>
         <Pie data={data} cx="50%" cy="50%" innerRadius={70} outerRadius={130} dataKey="value"
-          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
           labelLine={{ stroke: '#64748b' }}
           fontSize={10}
         >
           {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
-        <Tooltip formatter={(v: number) => fmtFull(v)} />
+        <Tooltip formatter={(v) => fmtFull(Number(v ?? 0))} />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -373,7 +373,7 @@ export function LoteLaborHeatmap({ detalle }: { detalle: DetalleLaboral[] }) {
         aspectRatio={4/3}
         stroke="rgba(15,23,42,0.8)"
         content={({ x, y, width, height, name, size, index }: any) => {
-          if (!width || !height || width < 30 || height < 20) return null;
+          if (!width || !height || width < 30 || height < 20) return <g />;
           const safeSize = size ?? 0;
           const safeIndex = index ?? 0;
           return (
