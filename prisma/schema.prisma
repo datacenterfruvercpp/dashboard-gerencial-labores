@@ -1,0 +1,1013 @@
+// ============================================================
+// Fruitend 2.0 — Schema de Base de Datos
+// Sistema de Control de Labores Agrícolas — EFRANAVI S.A
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ========================
+// DATOS MAESTROS
+// ========================
+
+model Empresa {
+  id                 Int      @id @default(autoincrement())
+  nombre             String
+  direccion          String   @default("")
+  telefono           String   @default("")
+  cedulaJuridica     String   @default("")
+  representanteLegal String   @default("")
+  email              String   @default("")
+  logoUrl            String   @default("")
+  fincas             Finca[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Finca {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique
+  nombre    String
+  empresaId Int
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  lotes     Lote[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lote {
+  id        Int      @id @default(autoincrement())
+  codigo    String
+  fincaId   Int
+  finca     Finca    @relation(fields: [fincaId], references: [id])
+  bloques   Bloque[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fincaId, codigo])
+}
+
+model Bloque {
+  id                  Int                      @id @default(autoincrement())
+  numero              Int
+  area                Float                    @default(0)
+  loteId              Int
+  lote                Lote                     @relation(fields: [loteId], references: [id])
+  grupoAsignaciones   GrupoBloqueAsignacion[]
+  siembras            Siembra[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@unique([loteId, numero])
+}
+
+// ========================
+// CATÁLOGOS
+// ========================
+
+model ClasificacionArticulo {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  articulos Articulo[]
+}
+
+model Articulo {
+  id                 Int                       @id @default(autoincrement())
+  codigo             String                    @unique
+  descripcion        String
+  ingredienteActivo  String                    @default("")
+  unidadMedida       String                    @default("kg")
+  clasificacionId    Int
+  clasificacion      ClasificacionArticulo     @relation(fields: [clasificacionId], references: [id])
+  diasReingreso      Int                       @default(0)
+  diasCosecha        Int                       @default(0)
+  dosisLabores       DosisLabor[]
+  cedulaDetalles     CedulaDetalle[]
+  entradaDetalles    EntradaBodegaDetalle[]
+  salidaDetalles     SalidaBodegaDetalle[]
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+}
+
+model Proveedor {
+  id        Int             @id @default(autoincrement())
+  nombre    String          @unique
+  telefono  String          @default("")
+  contacto  String          @default("")
+  email     String          @default("")
+  entradas  EntradaBodega[]
+}
+
+model Tractor {
+  id          Int      @id @default(autoincrement())
+  codigo      String   @unique
+  descripcion String
+  cedulas     Cedula[]
+}
+
+model Boquilla {
+  id      Int      @id @default(autoincrement())
+  nombre  String   @unique
+  cedulas Cedula[]
+}
+
+model Boom {
+  id          Int      @id @default(autoincrement())
+  codigo      String   @unique
+  descripcion String
+  cedulas     Cedula[]
+}
+
+model TipoMaterial {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique
+  siembras Siembra[]
+}
+
+model Variedad {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique
+  siembras Siembra[]
+}
+
+model Responsable {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  actividades Actividad[]
+}
+
+// ========================
+// PROGRAMAS TÉCNICOS
+// ========================
+
+model Programa {
+  id      Int     @id @default(autoincrement())
+  nombre  String
+  etapa   String  // PREPARACION, DESARROLLO_I, POSTFORZA_I, DESARROLLO_II, POSTFORZA_II, SEMILLEROS
+  area    String  @default("FERTILIZACION") // FERTILIZACION, PLAGAS, ENFERMEDADES, MALEZAS
+  labores Labor[]
+  grupos  Grupo[]
+
+  @@unique([nombre, etapa, area])
+}
+
+model Labor {
+  id            Int          @id @default(autoincrement())
+  descripcion   String
+  codigo        String       @default("")
+  dias          Int          @default(0)
+  grsPorPlanta  Float        @default(0)
+  ltsPorHa      Float        @default(0)
+  justificacion String       @default("")
+  equipo        String       @default("")
+  programaId    Int
+  programa      Programa     @relation(fields: [programaId], references: [id], onDelete: Cascade)
+  dosis         DosisLabor[]
+  cedulas       Cedula[]
+  orden         Int          @default(0)
+
+  @@unique([programaId, descripcion])
+}
+
+model DosisLabor {
+  id         Int      @id @default(autoincrement())
+  laborId    Int
+  labor      Labor    @relation(fields: [laborId], references: [id], onDelete: Cascade)
+  articuloId Int
+  articulo   Articulo @relation(fields: [articuloId], references: [id])
+  dosisPorHa Float    @default(0)
+  orden      Int      @default(0)
+
+  @@unique([laborId, articuloId])
+}
+
+// ========================
+// GRUPOS
+// ========================
+
+model Grupo {
+  id             Int                       @id @default(autoincrement())
+  codigo         String                    @unique
+  etapa          String                    // Mismos valores que Programa.etapa
+  programaId     Int?
+  programa       Programa?                 @relation(fields: [programaId], references: [id])
+  fechaSiembra   DateTime?
+  fechaForza     DateTime?
+  inicioPrograma DateTime?
+  modificado     Boolean                   @default(false)
+  areaTotal      Float                     @default(0)
+  bloques        GrupoBloqueAsignacion[]
+  cedulas        Cedula[]
+  salidasBodega  SalidaBodega[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+}
+
+model GrupoBloqueAsignacion {
+  id        Int    @id @default(autoincrement())
+  grupoId   Int
+  grupo     Grupo  @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  bloqueId  Int
+  bloque    Bloque @relation(fields: [bloqueId], references: [id])
+  pesoForza Float  @default(0)
+
+  @@unique([grupoId, bloqueId])
+}
+
+// ========================
+// BODEGA (INVENTARIO)
+// ========================
+
+model EntradaBodega {
+  id          Int                      @id @default(autoincrement())
+  consecutivo Int                      @unique
+  fecha       DateTime
+  ordenCompra String                   @default("")
+  noFactura   String                   @default("")
+  proveedorId Int?
+  proveedor   Proveedor?               @relation(fields: [proveedorId], references: [id])
+  tipo        String                   @default("COMPRA") // COMPRA, AJUSTE
+  moneda      String                   @default("COLONES") // COLONES, DOLARES
+  subtotal    Float                    @default(0)
+  descuento   Float                    @default(0)
+  impuesto    Float                    @default(0)
+  total       Float                    @default(0)
+  detalles    EntradaBodegaDetalle[]
+  createdAt   DateTime                 @default(now())
+}
+
+model EntradaBodegaDetalle {
+  id             Int           @id @default(autoincrement())
+  entradaId      Int
+  entrada        EntradaBodega @relation(fields: [entradaId], references: [id], onDelete: Cascade)
+  articuloId     Int
+  articulo       Articulo      @relation(fields: [articuloId], references: [id])
+  cantidad       Float         @default(0)
+  precioUnitario Float         @default(0)
+  total          Float         @default(0)
+}
+
+model SalidaBodega {
+  id          Int                     @id @default(autoincrement())
+  consecutivo Int                     @unique
+  fecha       DateTime
+  tipo        String                  @default("CEDULA") // CEDULA, AJUSTE
+  cedulaId    Int?                    @unique
+  cedula      Cedula?                 @relation(fields: [cedulaId], references: [id])
+  grupoId     Int?
+  grupo       Grupo?                  @relation(fields: [grupoId], references: [id])
+  descripcion String                  @default("")
+  hasTotales  Float                   @default(0)
+  detalles    SalidaBodegaDetalle[]
+  createdAt   DateTime                @default(now())
+}
+
+model SalidaBodegaDetalle {
+  id         Int          @id @default(autoincrement())
+  salidaId   Int
+  salida     SalidaBodega @relation(fields: [salidaId], references: [id], onDelete: Cascade)
+  articuloId Int
+  articulo   Articulo     @relation(fields: [articuloId], references: [id])
+  cantidad       Float        @default(0)
+  precioUnitario Float        @default(0)
+  total          Float        @default(0)
+}
+
+// ========================
+// CÉDULAS
+// ========================
+
+model Cedula {
+  id                 Int             @id @default(autoincrement())
+  consecutivo        Int             @unique
+  tipoAplicacion     String          @default("FOLIAR") // FOLIAR, SUELO
+  fecha              DateTime
+  semana             Int             @default(0)
+  anio               Int             @default(0)
+  grupoId            Int?
+  grupo              Grupo?          @relation(fields: [grupoId], references: [id])
+  laborId            Int?
+  labor              Labor?          @relation(fields: [laborId], references: [id])
+  tractorId          Int?
+  tractor            Tractor?        @relation(fields: [tractorId], references: [id])
+  boomId             Int?
+  boom               Boom?           @relation(fields: [boomId], references: [id])
+  boquillaId         Int?
+  boquilla           Boquilla?       @relation(fields: [boquillaId], references: [id])
+  volAgua            Float           @default(0)
+  porcentajeCaminos  Float           @default(0)
+  areaTotal          Float           @default(0)
+  justificacion      String          @default("")
+  estado             String          @default("GENERADA") // GENERADA, DESPACHADA, APLICADA, ANULADA
+  fechaAplicacion    DateTime?
+  detalles           CedulaDetalle[]
+  salidaBodega       SalidaBodega?
+  actividades        Actividad[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model CedulaDetalle {
+  id            Int      @id @default(autoincrement())
+  cedulaId      Int
+  cedula        Cedula   @relation(fields: [cedulaId], references: [id], onDelete: Cascade)
+  articuloId    Int
+  articulo      Articulo @relation(fields: [articuloId], references: [id])
+  dosisPorHa    Float    @default(0)
+  dosisPorBoom  Float    @default(0)
+  dosisFraccion Float    @default(0)
+  dosisTotal    Float    @default(0)
+  orden         Int      @default(0)
+}
+
+// ========================
+// ACTIVIDADES
+// ========================
+
+model Siembra {
+  id             Int          @id @default(autoincrement())
+  bloqueId       Int
+  bloque         Bloque       @relation(fields: [bloqueId], references: [id])
+  fecha          DateTime
+  plantas        Int          @default(0)
+  area           Float        @default(0)
+  densidad       Int          @default(65000)
+  tipoMaterialId Int
+  tipoMaterial   TipoMaterial @relation(fields: [tipoMaterialId], references: [id])
+  variedadId     Int
+  variedad       Variedad     @relation(fields: [variedadId], references: [id])
+  rangoPesos     String       @default("")
+  ciclo          Int          @default(1)
+  cerrado        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+}
+
+model Actividad {
+  id              Int           @id @default(autoincrement())
+  cedulaId        Int
+  cedula          Cedula        @relation(fields: [cedulaId], references: [id])
+  responsableId   Int?
+  responsable     Responsable?  @relation(fields: [responsableId], references: [id])
+  fechaProgramada DateTime
+  fechaRealizada  DateTime?
+  estado          String        @default("PENDIENTE") // PENDIENTE, EN_PROCESO, COMPLETADA, CANCELADA
+  observaciones   String        @default("")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+
+// ========================
+// USUARIOS
+// ========================
+
+model Usuario {
+  id           Int      @id @default(autoincrement())
+  codigo       String   @unique
+  nombre       String
+  clave        String
+  esSupervisor Boolean  @default(false)
+  permisos     String   @default("{}") // JSON string
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ========================
+// CONFIGURACIÓN
+// ========================
+
+model SemanaCalendario {
+  id      Int @id @default(autoincrement())
+  anio    Int
+  semana  Int
+  hasSiembra Float @default(0)
+
+  @@unique([anio, semana])
+}
+
+model ParametroEtapa {
+  id          Int    @id @default(autoincrement())
+  etapa       String @unique // PREPARACION, DESARROLLO_I, etc.
+  descripcion String @default("")
+  diasCiclo   Int    @default(0)
+  notas       String @default("")
+}
+
+model ActividadProgramada {
+  id          Int    @id @default(autoincrement())
+  etapa       String // PREPARACION, DESARROLLO_I, etc.
+  labor       String
+  dias        Int    @default(0)
+  equipo      String @default("")
+  orden       Int    @default(0)
+}
+
+// ========================
+// TRAZABILIDAD
+// ========================
+
+model MovimientoLog {
+  id          Int      @id @default(autoincrement())
+  tipo        String   // ENTRADA_BODEGA, SALIDA_BODEGA, CEDULA_GENERADA, CEDULA_DESPACHADA, CEDULA_APLICADA, CEDULA_ANULADA, ARTICULO_CREADO, etc.
+  entidad     String   // Nombre de la tabla afectada: Cedula, EntradaBodega, SalidaBodega, Articulo, etc.
+  entidadId   Int      // ID del registro afectado
+  descripcion String   // Descripción legible del movimiento
+  detalle     String   @default("{}") // JSON con datos adicionales
+  usuario     String   @default("sistema") // Código del usuario que realizó la acción
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// PLANILLAS — CATÁLOGOS BASE
+// ============================================================
+
+model Departamento {
+  id        Int        @id @default(autoincrement())
+  codigo    String     @unique
+  nombre    String
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CargoOficio {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+}
+
+model JornadaLaboral {
+  id          Int        @id @default(autoincrement())
+  codigo      String     @unique
+  descripcion String
+  horasPorDia Float      @default(8)
+  empleados   Empleado[]
+}
+
+model TipoPlanilla {
+  id           Int        @id @default(autoincrement())
+  codigo       String     @unique
+  nombre       String     // Campo, Administrativa, Gerencial
+  periodicidad String     @default("QUINCENAL") // SEMANAL, QUINCENAL, MENSUAL
+  activo       Boolean    @default(true)
+  planillas    Planilla[]
+  empleados    Empleado[]
+}
+
+model GrupoPago {
+  id        Int        @id @default(autoincrement())
+  codigo    String     @unique
+  nombre    String
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+  planillas Planilla[]
+}
+
+model TipoContrato {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+}
+
+model ClaseTrabajador {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+}
+
+model FormaPago {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique // Efectivo, Transferencia, Cheque
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+}
+
+model Nacionalidad {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  empleados Empleado[]
+}
+
+model CategoriaEmpleado {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  empleados Empleado[]
+}
+
+model CodigoOcupacional {
+  id          Int        @id @default(autoincrement())
+  codigo      String     @unique
+  descripcion String
+  empleados   Empleado[]
+}
+
+model CalendarioDiaFestivo {
+  id          Int      @id @default(autoincrement())
+  fecha       DateTime
+  descripcion String
+  anio        Int
+}
+
+model TipoIncapacidad {
+  id            Int           @id @default(autoincrement())
+  codigo        String        @unique
+  descripcion   String
+  incapacidades Incapacidad[]
+}
+
+// ============================================================
+// PLANILLAS — CONCEPTOS DE PAGO
+// ============================================================
+
+model ConceptoPago {
+  id               Int                 @id @default(autoincrement())
+  codigo           String              @unique
+  nombre           String
+  tipo             String              // INGRESO, DEDUCCION
+  aplicacion       String              @default("FIJO") // FIJO, PORCENTAJE, FORMULA, MANUAL
+  valorDefault     Float               @default(0) // Valor o porcentaje por defecto
+  afectaSalario    Boolean             @default(true)
+  afectaVacaciones Boolean             @default(false)
+  afectaAguinaldo  Boolean             @default(false)
+  esPorcentual     Boolean             @default(false)
+  esAutomatico     Boolean             @default(false) // Se calcula automáticamente
+  orden            Int                 @default(0)
+  activo           Boolean             @default(true)
+  detallesPlanilla PlanillaDetalle[]
+  empleadoDeducciones EmpleadoDeduccion[]
+}
+
+model TipoDeduccion {
+  id     Int              @id @default(autoincrement())
+  nombre String           @unique
+  activo Boolean          @default(true)
+  clases ClaseDeduccion[]
+}
+
+model ClaseDeduccion {
+  id              Int           @id @default(autoincrement())
+  nombre          String        @unique
+  tipoDeduccionId Int
+  tipoDeduccion   TipoDeduccion @relation(fields: [tipoDeduccionId], references: [id])
+  activo          Boolean       @default(true)
+}
+
+model CodigoIngreso {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique
+  descripcion String
+  activo      Boolean @default(true)
+}
+
+// ============================================================
+// PLANILLAS — EMPLEADOS
+// ============================================================
+
+model Empleado {
+  id                  Int                @id @default(autoincrement())
+  codigo              String             @unique
+  identificacion      String             @unique // Cédula
+  nombre              String
+  apellidos           String
+  fechaNacimiento     DateTime?
+  fechaIngreso        DateTime
+  fechaSalida         DateTime?
+
+  departamentoId      Int?
+  departamento        Departamento?      @relation(fields: [departamentoId], references: [id])
+  cargoId             Int?
+  cargo               CargoOficio?       @relation(fields: [cargoId], references: [id])
+  jornadaId           Int?
+  jornada             JornadaLaboral?    @relation(fields: [jornadaId], references: [id])
+  tipoPlanillaId      Int?
+  tipoPlanilla        TipoPlanilla?      @relation(fields: [tipoPlanillaId], references: [id])
+  grupoPagoId         Int?
+  grupoPago           GrupoPago?         @relation(fields: [grupoPagoId], references: [id])
+  tipoContratoId      Int?
+  tipoContrato        TipoContrato?      @relation(fields: [tipoContratoId], references: [id])
+  claseTrabajadorId   Int?
+  claseTrabajador     ClaseTrabajador?   @relation(fields: [claseTrabajadorId], references: [id])
+  formaPagoId         Int?
+  formaPago           FormaPago?         @relation(fields: [formaPagoId], references: [id])
+  nacionalidadId      Int?
+  nacionalidad        Nacionalidad?      @relation(fields: [nacionalidadId], references: [id])
+  categoriaId         Int?
+  categoria           CategoriaEmpleado? @relation(fields: [categoriaId], references: [id])
+  codigoOcupacionalId Int?
+  codigoOcupacional   CodigoOcupacional? @relation(fields: [codigoOcupacionalId], references: [id])
+
+  cuadrilla           String             @default("")
+  cuentaBancaria      String             @default("")
+  salarioBase         Float              @default(0)
+  salarioPorHora      Float              @default(0)
+
+  estado              String             @default("ACTIVO") // ACTIVO, INACTIVO, LIQUIDADO, INCAPACITADO
+  observaciones       String             @default("")
+
+  // Relaciones de planilla
+  rdts                RDT[]
+  deducciones         EmpleadoDeduccion[]
+  prestamos           Prestamo[]
+  vacaciones          Vacacion[]
+  incapacidades       Incapacidad[]
+  accionesPersonal    AccionPersonal[]
+  planillaDetalles    PlanillaDetalle[]
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+// ============================================================
+// PLANILLAS — PROCESOS
+// ============================================================
+
+model Planilla {
+  id              Int              @id @default(autoincrement())
+  anio            Int
+  mes             Int
+  quincena        Int              @default(1) // 1 o 2 (o semana 1-4)
+  tipoPlanillaId  Int
+  tipoPlanilla    TipoPlanilla     @relation(fields: [tipoPlanillaId], references: [id])
+  grupoPagoId     Int?
+  grupoPago       GrupoPago?       @relation(fields: [grupoPagoId], references: [id])
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  estado          String           @default("ABIERTA") // ABIERTA, EN_CALCULO, PRECALCULADA, CERRADA
+  totalIngresos   Float            @default(0)
+  totalDeducciones Float           @default(0)
+  totalNeto       Float            @default(0)
+  detalles        PlanillaDetalle[]
+  rdts            RDT[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([anio, mes, quincena, tipoPlanillaId])
+}
+
+model PlanillaDetalle {
+  id             Int          @id @default(autoincrement())
+  planillaId     Int
+  planilla       Planilla     @relation(fields: [planillaId], references: [id], onDelete: Cascade)
+  empleadoId     Int
+  empleado       Empleado     @relation(fields: [empleadoId], references: [id])
+  conceptoPagoId Int
+  conceptoPago   ConceptoPago @relation(fields: [conceptoPagoId], references: [id])
+
+  unidades       Float        @default(0) // Horas, días, etc.
+  monto          Float        @default(0)
+  esIngreso      Boolean      @default(true)
+
+  @@unique([planillaId, empleadoId, conceptoPagoId])
+}
+
+model RDT {
+  id              Int       @id @default(autoincrement())
+  fecha           DateTime
+  planillaId      Int?
+  planilla        Planilla? @relation(fields: [planillaId], references: [id])
+  empleadoId      Int
+  empleado        Empleado  @relation(fields: [empleadoId], references: [id])
+  horasRegulares  Float     @default(0)
+  horasExtra      Float     @default(0)
+  horasDoble      Float     @default(0)
+  horasExtraDoble Float     @default(0)
+  labor           String    @default("")
+  cuadrilla       String    @default("")
+  observaciones   String    @default("")
+  createdAt       DateTime  @default(now())
+}
+
+model EmpleadoDeduccion {
+  id             Int          @id @default(autoincrement())
+  empleadoId     Int
+  empleado       Empleado     @relation(fields: [empleadoId], references: [id])
+  conceptoPagoId Int
+  conceptoPago   ConceptoPago @relation(fields: [conceptoPagoId], references: [id])
+  monto          Float        @default(0)
+  porcentaje     Float        @default(0)
+  fechaInicio    DateTime
+  fechaFin       DateTime?
+  activo         Boolean      @default(true)
+  observaciones  String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@unique([empleadoId, conceptoPagoId])
+}
+
+model Prestamo {
+  id             Int      @id @default(autoincrement())
+  empleadoId     Int
+  empleado       Empleado @relation(fields: [empleadoId], references: [id])
+  montoOriginal  Float
+  saldoPendiente Float
+  cuotaMensual   Float
+  fechaInicio    DateTime
+  fechaFin       DateTime?
+  estado         String   @default("ACTIVO") // ACTIVO, PAGADO, CANCELADO
+  descripcion    String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Vacacion {
+  id              Int      @id @default(autoincrement())
+  empleadoId      Int
+  empleado        Empleado @relation(fields: [empleadoId], references: [id])
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  diasDisfrutados Int      @default(0)
+  diasPendientes  Int      @default(0)
+  periodo         String   @default("") // "2025-2026"
+  estado          String   @default("PENDIENTE") // PENDIENTE, APROBADA, DISFRUTADA
+  observaciones   String   @default("")
+  createdAt       DateTime @default(now())
+}
+
+model Incapacidad {
+  id                Int             @id @default(autoincrement())
+  empleadoId        Int
+  empleado          Empleado        @relation(fields: [empleadoId], references: [id])
+  tipoIncapacidadId Int
+  tipoIncapacidad   TipoIncapacidad @relation(fields: [tipoIncapacidadId], references: [id])
+  fechaInicio       DateTime
+  fechaFin          DateTime
+  dias              Int             @default(0)
+  observaciones     String          @default("")
+  createdAt         DateTime        @default(now())
+}
+
+model AccionPersonal {
+  id            Int      @id @default(autoincrement())
+  empleadoId    Int
+  empleado      Empleado @relation(fields: [empleadoId], references: [id])
+  tipo          String   // AMONESTACION, ASCENSO, CAMBIO_PUESTO, AUMENTO, SUSPENSION
+  fecha         DateTime
+  descripcion   String
+  montoAnterior Float?
+  montoNuevo    Float?
+  aprobadoPor   String   @default("")
+  createdAt     DateTime @default(now())
+}
+
+// ============================================================
+// PLANILLAS — PARÁMETROS Y CONFIGURACIÓN
+// ============================================================
+
+model ParametroPlanilla {
+  id          Int    @id @default(autoincrement())
+  clave       String @unique
+  valor       String
+  descripcion String @default("")
+  grupo       String @default("GENERAL") // GENERAL, PREAVISO, CESANTIA, SOCIALES, LIQUIDACION
+}
+
+model AportePatrono {
+  id                   Int     @id @default(autoincrement())
+  concepto             String  @unique // CCSS_SEM, CCSS_IVM, BANCO_POPULAR, INS, etc.
+  porcentajePatrono    Float   @default(0)
+  porcentajeTrabajador Float   @default(0)
+  activo               Boolean @default(true)
+}
+
+model TablaCesantia {
+  id         Int @id @default(autoincrement())
+  aniosDesde Int
+  aniosHasta Int
+  diasPago   Int
+}
+
+// ============================================================
+// MÓDULO DE CONTABILIDAD
+// ============================================================
+
+model Moneda {
+  id          Int              @id @default(autoincrement())
+  codigo      String           @unique // CRC, USD, EUR
+  nombre      String // Colón Costarricense, Dólar, Euro
+  simbolo     String           @default("₡") // ₡, $, €
+  tipoCambio  Float            @default(1) // Relativo a moneda base
+  esBase      Boolean          @default(false)
+  activo      Boolean          @default(true)
+  cuentas     CuentaContable[]
+  asientos    Asiento[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ClasificacionContable {
+  id              Int          @id @default(autoincrement())
+  descripcion     String       @unique
+  definicionBase  String // ACTIVO, PASIVO, EGRESO, INGRESO, CAPITAL
+  clases          ClaseCuenta[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model ClaseCuenta {
+  id                   Int                    @id @default(autoincrement())
+  descripcion          String
+  clasificacionId      Int
+  clasificacion        ClasificacionContable  @relation(fields: [clasificacionId], references: [id])
+  tipoBase             String                 @default("") // ACTIVO, PASIVO, GASTO, INGRESO, CAPITAL
+  seLiquidaFinPeriodo  Boolean                @default(false)
+  cuentas              CuentaContable[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+}
+
+model NivelContable {
+  id      Int @id @default(autoincrement())
+  nivel   Int @unique
+  tamano  Int // Dígitos en este nivel
+}
+
+model CuentaContable {
+  id                    Int              @id @default(autoincrement())
+  codigo                String           @unique
+  descripcion           String
+  claseId               Int
+  clase                 ClaseCuenta      @relation(fields: [claseId], references: [id])
+  recibeMovimientos     Boolean          @default(false)
+  requiereNIT           Boolean          @default(false)
+  requiereCentroCosto   Boolean          @default(false)
+  tienePresupuesto      Boolean          @default(false)
+  activo                Boolean          @default(true)
+  centroCostoDefectoId  Int?
+  centroCostoDefecto    CentroCostoContable? @relation("CuentaDefecto", fields: [centroCostoDefectoId], references: [id])
+  monedaId              Int?
+  moneda                Moneda?          @relation(fields: [monedaId], references: [id])
+  lineasAsiento         AsientoLinea[]
+  saldos                SaldoCuenta[]
+  centrosCosto          CentroCostoContable[] @relation("CentroCuenta")
+  presupuestos          PresupuestoLinea[]
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+}
+
+model CentroCostoContable {
+  id              Int              @id @default(autoincrement())
+  codigo          String           @unique
+  descripcion     String
+  cuentaId        Int?
+  cuenta          CuentaContable?  @relation("CentroCuenta", fields: [cuentaId], references: [id])
+  cuentasDefecto  CuentaContable[] @relation("CuentaDefecto")
+  lineasAsiento   AsientoLinea[]
+  activo          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model CentroGasto {
+  id          Int      @id @default(autoincrement())
+  codigo      String   @unique
+  descripcion String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TipoGasto {
+  id          Int      @id @default(autoincrement())
+  descripcion String   @unique
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ParametroContable {
+  id    Int    @id @default(autoincrement())
+  clave String @unique
+  valor String
+}
+
+// --- Terceros (NIT) ---
+model Tercero {
+  id              Int           @id @default(autoincrement())
+  identificacion  String        @unique // Cédula, NIT, pasaporte
+  nombre          String
+  tipoDocumento   String        @default("CEDULA") // CEDULA, JURIDICA, DIMEX, PASAPORTE
+  direccion       String        @default("")
+  telefono        String        @default("")
+  email           String        @default("")
+  activo          Boolean       @default(true)
+  lineasAsiento   AsientoLinea[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// --- Asientos Contables ---
+model Asiento {
+  id              Int            @id @default(autoincrement())
+  numero          Int
+  descripcion     String
+  fecha           DateTime
+  monedaId        Int?
+  moneda          Moneda?        @relation(fields: [monedaId], references: [id])
+  tipoCambio      Float          @default(1)
+  totalDebitos    Float          @default(0)
+  totalCreditos   Float          @default(0)
+  estado          String         @default("BORRADOR") // BORRADOR, AUTORIZADO, APLICADO, REVERSADO
+  documentoRef    String         @default("")
+  creadoPor       String         @default("")
+  autorizadoPor   String         @default("")
+  fechaAplicacion DateTime?
+  lineas          AsientoLinea[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model AsientoLinea {
+  id              Int                  @id @default(autoincrement())
+  asientoId       Int
+  asiento         Asiento              @relation(fields: [asientoId], references: [id], onDelete: Cascade)
+  numLinea        Int
+  cuentaId        Int
+  cuenta          CuentaContable       @relation(fields: [cuentaId], references: [id])
+  centroCostoId   Int?
+  centroCosto     CentroCostoContable? @relation(fields: [centroCostoId], references: [id])
+  terceroId       Int?
+  tercero         Tercero?             @relation(fields: [terceroId], references: [id])
+  referencia      String               @default("")
+  detalle         String               @default("")
+  debito          Float                @default(0)
+  credito         Float                @default(0)
+  debitoEquiv     Float                @default(0) // En moneda base
+  creditoEquiv    Float                @default(0) // En moneda base
+}
+
+// --- Períodos y Saldos ---
+model PeriodoContable {
+  id          Int       @id @default(autoincrement())
+  anio        Int
+  mes         Int
+  cerrado     Boolean   @default(false)
+  fechaCierre DateTime?
+  cerradoPor  String    @default("")
+
+  @@unique([anio, mes])
+}
+
+model SaldoCuenta {
+  id           Int            @id @default(autoincrement())
+  cuentaId     Int
+  cuenta       CuentaContable @relation(fields: [cuentaId], references: [id])
+  anio         Int
+  mes          Int
+  numCierre    Int            @default(0)
+  saldoInicial Float          @default(0)
+  debitos      Float          @default(0)
+  creditos     Float          @default(0)
+  saldoFinal   Float          @default(0)
+
+  @@unique([cuentaId, anio, mes, numCierre])
+}
+
+// --- Módulo de Presupuesto ---
+model Presupuesto {
+  id          Int                @id @default(autoincrement())
+  nombre      String
+  anio        Int
+  estado      String             @default("BORRADOR") // BORRADOR, APROBADO, CERRADO
+  descripcion String             @default("")
+  lineas      PresupuestoLinea[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([anio, nombre])
+}
+
+model PresupuestoLinea {
+  id              Int            @id @default(autoincrement())
+  presupuestoId   Int
+  presupuesto     Presupuesto    @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  cuentaId        Int
+  cuenta          CuentaContable @relation(fields: [cuentaId], references: [id])
+  enero           Float          @default(0)
+  febrero         Float          @default(0)
+  marzo           Float          @default(0)
+  abril           Float          @default(0)
+  mayo            Float          @default(0)
+  junio           Float          @default(0)
+  julio           Float          @default(0)
+  agosto          Float          @default(0)
+  septiembre      Float          @default(0)
+  octubre         Float          @default(0)
+  noviembre       Float          @default(0)
+  diciembre       Float          @default(0)
+  totalAnual      Float          @default(0)
+
+  @@unique([presupuestoId, cuentaId])
+}
+
