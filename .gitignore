@@ -14,7 +14,7 @@
 /coverage
 
 # next.js
-/.next/
+# /.next/ -- Incluido en repo para deploy sin build en servidor
 /out/
 
 # production
@@ -30,8 +30,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+# .env -- incluido para produccion
 
 # vercel
 .vercel
