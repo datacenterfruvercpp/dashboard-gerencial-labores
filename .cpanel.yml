@@ -2,16 +2,15 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/datacent/respaldoreportedelabores.datacenterpc.com
-    # Deshabilitar Passenger - modo estatico Apache
-    - /bin/cp -f .htaccess $DEPLOYPATH/.htaccess
-    # Pagina principal y 404
+    # Servidor estatico ultraligero (sustituye Next.js standalone)
+    - /bin/cp -f start-server.js $DEPLOYPATH/start-server.js
+    - /bin/cp -f package.json $DEPLOYPATH/package.json
+    # Archivos del build estatico (out/) directamente al doc root
     - /bin/cp -f out/index.html $DEPLOYPATH/index.html
     - /bin/cp -f out/404.html $DEPLOYPATH/404.html
-    # Datos del dashboard
     - /bin/cp -f out/data.json $DEPLOYPATH/data.json
     - /bin/cp -f out/planillas-data.json $DEPLOYPATH/planillas-data.json
-    # Assets estaticos Next.js (CSS, JS)
-    - /bin/cp -rf out/_next $DEPLOYPATH/_next
-    # Iconos e imagenes
     - /bin/cp -f out/favicon.ico $DEPLOYPATH/favicon.ico
     - /bin/cp -f out/og-image.png $DEPLOYPATH/og-image.png
+    - /bin/cp -rf out/_next $DEPLOYPATH/_next
+    # NO copiamos el .htaccess para no romper la config de Passenger
