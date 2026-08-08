@@ -2,12 +2,16 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/datacent/respaldoreportedelabores.datacenterpc.com
-    - /bin/cp -f start-server.js $DEPLOYPATH/start-server.js
-    - /bin/cp -f next.config.ts $DEPLOYPATH/next.config.ts
-    - /bin/cp -f package.json $DEPLOYPATH/package.json
-    - /bin/cp -rf .next $DEPLOYPATH/.next
-    - /bin/cp -rf public $DEPLOYPATH/public
-    - /bin/mkdir -p $DEPLOYPATH/prisma
-    - /bin/cp -f prisma/dev.db $DEPLOYPATH/prisma/dev.db
-    - /bin/cp -f .env $DEPLOYPATH/.env
-    - /bin/cp -f .env $DEPLOYPATH/.next/standalone/.env
+    # Deshabilitar Passenger - modo estatico Apache
+    - /bin/cp -f .htaccess $DEPLOYPATH/.htaccess
+    # Pagina principal y 404
+    - /bin/cp -f out/index.html $DEPLOYPATH/index.html
+    - /bin/cp -f out/404.html $DEPLOYPATH/404.html
+    # Datos del dashboard
+    - /bin/cp -f out/data.json $DEPLOYPATH/data.json
+    - /bin/cp -f out/planillas-data.json $DEPLOYPATH/planillas-data.json
+    # Assets estaticos Next.js (CSS, JS)
+    - /bin/cp -rf out/_next $DEPLOYPATH/_next
+    # Iconos e imagenes
+    - /bin/cp -f out/favicon.ico $DEPLOYPATH/favicon.ico
+    - /bin/cp -f out/og-image.png $DEPLOYPATH/og-image.png

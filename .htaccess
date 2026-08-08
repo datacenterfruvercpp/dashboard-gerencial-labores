@@ -1,0 +1,10 @@
+# Deshabilitar Passenger - Apache sirve archivos estaticos directamente
+PassengerEnabled Off
+
+Options -Indexes
+DirectoryIndex index.html
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [QSA,L]
