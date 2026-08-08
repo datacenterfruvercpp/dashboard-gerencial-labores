@@ -1,16 +1,16 @@
 // start-server.js — Next.js Standalone para cPanel / Phusion Passenger
-// UV_THREADPOOL_SIZE=1 evita el limite de pthreads de CloudLinux
+// UV_THREADPOOL_SIZE=1 evita limite de pthreads de CloudLinux
 'use strict';
 
 process.env.UV_THREADPOOL_SIZE = '1';
 process.env.NODE_ENV = 'production';
-// Passenger inyecta PORT automaticamente; Next.js standalone lo lee
 
 var path = require('path');
 var standaloneDir = path.join(__dirname, '.next', 'standalone');
+var standaloneServer = path.join(standaloneDir, 'server.js');
 
-// El standalone tiene su propio node_modules — no necesita el raiz
+// chdir al standalone para que server.js encuentre sus assets con process.cwd()
 process.chdir(standaloneDir);
 
-// Iniciar el servidor Next.js standalone
-require('./server.js');
+// require con ruta absoluta (require('./x') resuelve relativo al archivo, no al cwd)
+require(standaloneServer);
