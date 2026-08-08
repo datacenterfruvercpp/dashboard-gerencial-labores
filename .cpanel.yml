@@ -4,7 +4,10 @@ deployment:
     - export DEPLOYPATH=/home/datacent/respaldoreportedelabores.datacenterpc.com
     - /bin/cp -f start-server.js $DEPLOYPATH/start-server.js
     - /bin/cp -f next.config.ts $DEPLOYPATH/next.config.ts
+    - /bin/cp -f package.json $DEPLOYPATH/package.json
     - /bin/cp -rf .next $DEPLOYPATH/.next
     - /bin/cp -rf public $DEPLOYPATH/public
+    - /bin/mkdir -p $DEPLOYPATH/prisma
+    - /bin/cp -f prisma/dev.db $DEPLOYPATH/prisma/dev.db
     - /bin/cp -f .env $DEPLOYPATH/.env
-    - /bin/cp -f package.json $DEPLOYPATH/package.json
+    - /bin/cp -f .env $DEPLOYPATH/.next/standalone/.env
